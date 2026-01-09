@@ -1,32 +1,30 @@
+import yaml
 import numpy as np
 import os
 
-# --- ŚCIEŻKI DO PLIKÓW ---
-BASE_DATA_DIR = "data"
-SEGMENTATION_DIR = os.path.join(BASE_DATA_DIR, "USA_segmentation")
+# Wczytywanie pliku YAML
+with open("config.yaml", 'r') as stream:
+    try:
+        cfg = yaml.safe_load(stream)
+    except yaml.YAMLError as exc:
+        print(exc)
 
+# Mapowanie ścieżek
 PATHS = {
-    "NRG": os.path.join(SEGMENTATION_DIR, "NRG_images", "*.png"),
-    "MASKS": os.path.join(SEGMENTATION_DIR, "masks", "*.png"),
-    "RGB": os.path.join(SEGMENTATION_DIR, "RGB_images", "*.png"),
-    "OUTPUT": "./generated_masks"
+    "NRG": cfg['paths']['nrg_pattern'],
+    "RGB": cfg['paths']['rgb_pattern'],
+    "MASKS": cfg['paths']['masks_pattern'],
+    "OUTPUT": cfg['paths']['output_dir']
 }
 
-# --- PARAMETRY DETEKCJI NRG (Percentyle) ---
-# Wartość 35 oznacza 35-ty percentyl (z Twojego kodu w Colab)
-NDVI_PERCENTILE = 35 
+# Parametry detekcji
+NDVI_PERCENTILE = cfg['detection']['ndvi_percentile']
+MIN_OBJECT_SIZE = cfg['detection']['min_object_size']
+MORPH_KERNEL_SIZE = tuple(cfg['detection']['morph_kernel_size'])
 
-# --- PARAMETRY DETEKCJI RGB (Las - HSV) ---
-# Kolory lasu zdefiniowane w Twoim kodzie
-FOREST_LOWER_PURPLE = np.array([0.65, 0.15, 0.25])
-FOREST_UPPER_PURPLE = np.array([0.90, 1.00, 1.00])
+# Progi HSV (konwertowane na numpy array dla OpenCV/Skimage)
+FOREST_LOWER_PURPLE = np.array(cfg['forest_hsv']['lower'])
+FOREST_UPPER_PURPLE = np.array(cfg['forest_hsv']['upper'])
 
-# --- PARAMETRY CZYSZCZENIA MASEK ---
-# Wielkość "pędzla" do usuwania szumów (3x3)
-MORPH_KERNEL_SIZE = (3, 3)
-
-# Minimalna wielkość obiektu (wszystko mniejsze niż 50 pikseli znika)
-MIN_OBJECT_SIZE = 50
-
-# --- USTAWIENIA EKSPERYMENTU ---
-NUM_SAMPLES_TO_PROCESS = 5
+# Ustawienia eksperymentu
+NUM_SAMPLES_TO_PROCESS = cfg['experiment']['num_samples']

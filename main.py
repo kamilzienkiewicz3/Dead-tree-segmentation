@@ -6,6 +6,7 @@ import glob
 from skimage import color
 from skimage.morphology import remove_small_objects
 import config
+import yaml
 
 # --- 1. FUNKCJE Z COLABA ---
 
