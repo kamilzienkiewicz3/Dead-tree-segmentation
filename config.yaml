@@ -18,4 +18,4 @@ forest_hsv:
 
 # Ustawienia eksperymentu
 experiment:
-  num_samples: 10
+  num_samples: 5

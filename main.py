@@ -8,6 +8,28 @@ from skimage.morphology import remove_small_objects
 import config
 import yaml
 
+# --- WCZYTYWANIE KONFIGURACJI YAML ---
+with open("config.yaml", 'r') as stream:
+    c = yaml.safe_load(stream)
+
+# Obiekt config, który udaje stary plik .py, żeby nie zmieniać reszty kodu
+class Config:
+    PATHS = {
+        "NRG": c['paths']['nrg_pattern'],
+        "RGB": c['paths']['rgb_pattern'],
+        "MASKS": c['paths']['masks_pattern'],
+        "OUTPUT": c['paths']['output_dir']
+    }
+    NDVI_PERCENTILE = c['detection']['ndvi_percentile']
+    MIN_OBJECT_SIZE = c['detection']['min_object_size']
+    MORPH_KERNEL_SIZE = tuple(c['detection']['morph_kernel_size'])
+    FOREST_LOWER_PURPLE = np.array(c['forest_hsv']['lower'])
+    FOREST_UPPER_PURPLE = np.array(c['forest_hsv']['upper'])
+    NUM_SAMPLES_TO_PROCESS = c['experiment']['num_samples']
+
+config = Config()
+# --- KONIEC SEKCJI KONFIGURACJI ---
+
 # --- 1. FUNKCJE Z COLABA ---
 
 def detect_dead_trees_advanced(nrg_image):
