@@ -184,13 +184,19 @@ def plot_confusion_matrix(tp, tn, fp, fn, title):
         label = [['TN', 'FP'], ['FN', 'TP']][i][j]
         ax.text(j, i, f'{label}\n{val}\n({perc:.2f}%)', ha='center', va='center', color='black')
     plt.title(title)
-    plt.ylabel('Rzeczywistość'); plt.xlabel('Predykcja'); plt.show()
+    plt.ylabel('Rzeczywistość')
+    plt.xlabel('Predykcja')
+    plt.show()
 
 def plot_iou_histogram(filenames, ious, title, color_bar):
     plt.figure(figsize=(12, 4))
     plt.bar(filenames, ious, color=color_bar)
-    plt.title(title); plt.xticks(rotation=90); plt.ylim(0, 1)
-    plt.grid(axis='y', linestyle='--', alpha=0.7); plt.tight_layout(); plt.show()
+    plt.title(title)
+    plt.xticks(rotation=90)
+    plt.ylim(0, 1)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    plt.show()
 
 
 # --- NOWA FUNKCJA TWORZĄCA OBRAZ RGB Z WARSTWAMI ---
@@ -248,13 +254,37 @@ def display_full_report(results):
     print("--- RAPORT PODSTAWOWY ---")
     for r in results:
         plt.figure(figsize=(24, 5)) 
-        plt.subplot(1, 6, 1); plt.imshow(r["rgb"]); plt.title(f"RGB: {r['filename'][:8]}..."); plt.axis('off')
-        plt.subplot(1, 6, 2); plt.imshow(r["nrg"]); plt.title("Obraz NRG"); plt.axis('off')
-        plt.subplot(1, 6, 3); plt.imshow(r["nrg_mask"], cmap='gray'); plt.title(f"Maska NRG\nIoU: {r['iou_nrg']:.2f}"); plt.axis('off')
-        plt.subplot(1, 6, 4); plt.imshow(r["rgb_mask"], cmap='gray'); plt.title(f"Maska Lasu (RGB)\nIoU: {r['iou_rgb']:.2f}"); plt.axis('off')
-        plt.subplot(1, 6, 5); plt.imshow(r["combined_mask"], cmap='gray'); plt.title(f"Combined\nIoU: {r['iou_combined']:.2f}"); plt.axis('off')
-        plt.subplot(1, 6, 6); plt.imshow(r["original_mask"], cmap='gray', vmin=0, vmax=255); plt.title("Ground Truth"); plt.axis('off')
-        plt.tight_layout(); plt.show()
+        plt.subplot(1, 6, 1)
+        plt.imshow(r["rgb"])
+        plt.title(f"RGB: {r['filename'][:8]}...")
+        plt.axis('off')
+
+        plt.subplot(1, 6, 2)
+        plt.imshow(r["nrg"])
+        plt.title("Obraz NRG")
+        plt.axis('off')
+
+        plt.subplot(1, 6, 3)
+        plt.imshow(r["nrg_mask"], cmap='gray')
+        plt.title(f"Maska NRG\nIoU: {r['iou_nrg']:.2f}")
+        plt.axis('off')
+
+        plt.subplot(1, 6, 4)
+        plt.imshow(r["rgb_mask"], cmap='gray')
+        plt.title(f"Maska Lasu (RGB)\nIoU: {r['iou_rgb']:.2f}")
+        plt.axis('off')
+
+        plt.subplot(1, 6, 5)
+        plt.imshow(r["combined_mask"], cmap='gray')
+        plt.title(f"Combined\nIoU: {r['iou_combined']:.2f}")
+        plt.axis('off')
+
+        plt.subplot(1, 6, 6)
+        plt.imshow(r["original_mask"], cmap='gray', vmin=0, vmax=255)
+        plt.title("Ground Truth")
+        plt.axis('off')
+        plt.tight_layout()
+        plt.show()
 
     # 2. Histogramy
     filenames = [r["filename"] for r in results]
@@ -284,9 +314,6 @@ def display_full_report(results):
     # 4. ZESTAWIENIA SZCZEGÓŁOWE 1x3
     print("\n--- SZCZEGÓŁOWE PORÓWNANIE Z WZORCEM (GT) ---")
     for r in results:
-        # Zestawienie dla maski RGB
-        show_1x3_blended(r["original_mask"], r["rgb_mask"], r["filename"], "Maska RGB (Las)")
-        
         # Zestawienie dla maski Combined
         show_1x3_blended(r["original_mask"], r["combined_mask"], r["filename"], "Maska Combined")
 
