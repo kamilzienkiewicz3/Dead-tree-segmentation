@@ -1,3 +1,5 @@
+import yaml
+import argparse
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -5,28 +7,40 @@ import os
 import glob
 from skimage import color
 from skimage.morphology import remove_small_objects
-import yaml
+
+# --- OBSŁUGA ARGUMENTÓW LINII KOMEND ---
+parser = argparse.ArgumentParser(description="Detekcja martwych drzew")
+parser.add_argument("--percentile", type=int, help="Procentowa wartość percentyla NDVI")
+parser.add_argument("--samples", type=int, help="Liczba próbek do przetworzenia")
+parser.add_argument("--output", type=str, help="Folder wyjściowy dla masek")
+args = parser.parse_args()
 
 # --- WCZYTYWANIE KONFIGURACJI YAML ---
 with open("config.yaml", 'r') as stream:
     c = yaml.safe_load(stream)
 
-# Obiekt config, który udaje stary plik .py, żeby nie zmieniać reszty kodu
+# Klasa Config, która łączy YAML z argumentami z konsoli
 class Config:
-    PATHS = {
-        "NRG": c['paths']['nrg_pattern'],
-        "RGB": c['paths']['rgb_pattern'],
-        "MASKS": c['paths']['masks_pattern'],
-        "OUTPUT": c['paths']['output_dir']
-    }
-    NDVI_PERCENTILE = c['detection']['ndvi_percentile']
-    MIN_OBJECT_SIZE = c['detection']['min_object_size']
-    MORPH_KERNEL_SIZE = tuple(c['detection']['morph_kernel_size'])
-    FOREST_LOWER_PURPLE = np.array(c['forest_hsv']['lower'])
-    FOREST_UPPER_PURPLE = np.array(c['forest_hsv']['upper'])
-    NUM_SAMPLES_TO_PROCESS = c['experiment']['num_samples']
+    def __init__(self, entries, cli_args):
+        # Ścieżki i folder wyjściowy (priorytet ma konsola)
+        self.PATHS = {
+            "NRG": entries['paths']['nrg_pattern'],
+            "RGB": entries['paths']['rgb_pattern'],
+            "MASKS": entries['paths']['masks_pattern'],
+            "OUTPUT": cli_args.output if cli_args.output else entries['paths']['output_dir']
+        }
+        
+        # Parametry detekcji (jeśli nie podano w konsoli, bierzemy z YAML)
+        self.NDVI_PERCENTILE = cli_args.percentile if cli_args.percentile is not None else entries['detection']['ndvi_percentile']
+        self.NUM_SAMPLES_TO_PROCESS = cli_args.samples if cli_args.samples is not None else entries['experiment']['num_samples']
+        
+        # Reszta parametrów zostaje z YAML
+        self.MIN_OBJECT_SIZE = entries['detection']['min_object_size']
+        self.MORPH_KERNEL_SIZE = tuple(entries['detection']['morph_kernel_size'])
+        self.FOREST_LOWER_PURPLE = np.array(entries['forest_hsv']['lower'])
+        self.FOREST_UPPER_PURPLE = np.array(entries['forest_hsv']['upper'])
 
-config = Config()
+config = Config(c, args)
 # --- KONIEC SEKCJI KONFIGURACJI ---
 
 # --- 1. FUNKCJE Z COLABA ---
