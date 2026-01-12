@@ -22,6 +22,13 @@ source .venv/bin/activate
 
 pip install -r requirements.txt
 ```
+# Configuration Setup
+The project requires a configuration file. Create it by copying the template:
+
+```bash
+cp config.temp.yaml config.yaml
+```
+Before running the code, please copy temp config into your own config
 
 # 📂 Data Structure
 
