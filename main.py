@@ -8,21 +8,21 @@ import glob
 from skimage import color
 from skimage.morphology import remove_small_objects
 
-# --- OBSŁUGA ARGUMENTÓW LINII KOMEND ---
+
 parser = argparse.ArgumentParser(description="Detekcja martwych drzew")
 parser.add_argument("--percentile", type=int, help="Procentowa wartość percentyla NDVI")
 parser.add_argument("--samples", type=int, help="Liczba próbek do przetworzenia")
 parser.add_argument("--output", type=str, help="Folder wyjściowy dla masek")
 args = parser.parse_args()
 
-# --- WCZYTYWANIE KONFIGURACJI YAML ---
+
 with open("config.yaml", 'r') as stream:
     c = yaml.safe_load(stream)
 
-# Klasa Config, która łączy YAML z argumentami z konsoli
+
 class Config:
     def __init__(self, entries, cli_args):
-        # Ścieżki i folder wyjściowy (priorytet ma konsola)
+        
         self.PATHS = {
             "NRG": entries['paths']['nrg_pattern'],
             "RGB": entries['paths']['rgb_pattern'],
@@ -30,20 +30,19 @@ class Config:
             "OUTPUT": cli_args.output if cli_args.output else entries['paths']['output_dir']
         }
         
-        # Parametry detekcji (jeśli nie podano w konsoli, bierzemy z YAML)
+        
         self.NDVI_PERCENTILE = cli_args.percentile if cli_args.percentile is not None else entries['detection']['ndvi_percentile']
         self.NUM_SAMPLES_TO_PROCESS = cli_args.samples if cli_args.samples is not None else entries['experiment']['num_samples']
         
-        # Reszta parametrów zostaje z YAML
+        
         self.MIN_OBJECT_SIZE = entries['detection']['min_object_size']
         self.MORPH_KERNEL_SIZE = tuple(entries['detection']['morph_kernel_size'])
         self.FOREST_LOWER_PURPLE = np.array(entries['forest_hsv']['lower'])
         self.FOREST_UPPER_PURPLE = np.array(entries['forest_hsv']['upper'])
 
 config = Config(c, args)
-# --- KONIEC SEKCJI KONFIGURACJI ---
 
-# --- 1. FUNKCJE Z COLABA ---
+
 
 def detect_dead_trees_advanced(nrg_image):
     nir   = nrg_image[:, :, 0].astype(float)
@@ -66,9 +65,9 @@ def detect_dead_trees_advanced(nrg_image):
     mask = mask.astype(np.uint8)
     kernel = np.ones(config.MORPH_KERNEL_SIZE, np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-    mask_close = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
-    return mask_close
+    return mask
 
 def generate_forest_mask(rgb_image):
     hsv_image = color.rgb2hsv(rgb_image)
@@ -84,7 +83,7 @@ def generate_forest_mask(rgb_image):
 
     return cleaned_mask
 
-# --- 2. PAROWANIE PLIKÓW ---
+
 def create_paired_files(paths_rgb_pattern, paths_nrg_pattern, paths_masks_pattern):
     rgb_dir = os.path.dirname(paths_rgb_pattern)
     nrg_dir = os.path.dirname(paths_nrg_pattern)
@@ -106,7 +105,7 @@ def create_paired_files(paths_rgb_pattern, paths_nrg_pattern, paths_masks_patter
     print(f"Znaleziono {len(paired)} kompletnych par.")
     return paired
 
-# --- 3. METRYKI ---
+
 def calculate_iou(mask1, mask2):
     inter = np.logical_and(mask1, mask2).sum()
     union = np.logical_or(mask1, mask2).sum()
@@ -131,24 +130,24 @@ def compare_and_score_masks(paired_files, num_samples, output_dir=None):
         rgb_path, nrg_path, mask_path = paired_files[i]
         print(f"[{i+1}/{limit}] Analiza: {os.path.basename(rgb_path)}")
 
-        # 1. Wczytanie BGR
+        
         rgb_raw = cv2.imread(rgb_path)
         nrg_raw = cv2.imread(nrg_path)
         gt_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
 
-        # 2. Konwersja na RGB
+        
         rgb = cv2.cvtColor(rgb_raw, cv2.COLOR_BGR2RGB)
         nrg = cv2.cvtColor(nrg_raw, cv2.COLOR_BGR2RGB)
 
-        # 3. Generowanie masek
+        
         nrg_mask = detect_dead_trees_advanced(nrg)
         rgb_mask = generate_forest_mask(rgb)
         
-        # 4. Łączenie masek (AND)
+        
         combined_mask_pre = (nrg_mask > 0) & (rgb_mask > 0)
         combined_mask = remove_small_objects(combined_mask_pre, min_size=config.MIN_OBJECT_SIZE).astype(np.uint8)
         
-        # 5. Obliczenia
+       
         iou_nrg = calculate_iou(nrg_mask, gt_mask)
         iou_rgb = calculate_iou(rgb_mask, gt_mask)
         iou_combined = calculate_iou(combined_mask, gt_mask)
@@ -159,7 +158,7 @@ def compare_and_score_masks(paired_files, num_samples, output_dir=None):
         
         results.append({
             "rgb": rgb, "nrg": nrg,
-            "nrg_mask": nrg_mask, "rgb_mask": rgb_mask, "combined_mask": combined_mask * 255, 
+            "nrg_mask": nrg_mask, "rgb_mask": rgb_mask, "combined_mask": combined_mask, 
             "original_mask": gt_mask,
             "iou_nrg": iou_nrg, "iou_rgb": iou_rgb, "iou_combined": iou_combined,
             "tp": tp, "tn": tn, "fp": fp, "fn": fn,
@@ -169,11 +168,10 @@ def compare_and_score_masks(paired_files, num_samples, output_dir=None):
         })
         
         if output_dir:
-            cv2.imwrite(os.path.join(output_dir, f'Result_{os.path.basename(rgb_path)}'), combined_mask * 255)
+            cv2.imwrite(os.path.join(output_dir, f'Result_{os.path.basename(rgb_path)}'), combined_mask)
             
     return results
 
-# --- 4. WIZUALIZACJA I RAPORT ---
 def plot_confusion_matrix(tp, tn, fp, fn, title):
     matrix = np.array([[tn, fp], [fn, tp]])
     total = tp + tn + fp + fn
@@ -199,48 +197,27 @@ def plot_iou_histogram(filenames, ious, title, color_bar):
     plt.show()
 
 
-# --- NOWA FUNKCJA TWORZĄCA OBRAZ RGB Z WARSTWAMI ---
 def create_layered_image(gt_mask, pred_mask):
-    """
-    Ręczne tworzenie obrazu RGB:
-    1. Tło = Ciemnoniebieski
-    2. GT = Biały
-    3. Pred = Czerwony (nadpisuje GT)
-    """
     h, w = gt_mask.shape
-    # 1. Tło: Ciemnoniebieski [0, 0, 100] (w formacie RGB)
-    # Tworzymy puste płótno 3-kanałowe
     vis_img = np.full((h, w, 3), [0, 0, 100], dtype=np.uint8)
-    
-    # 2. Rysujemy GT na biało [255, 255, 255]
-    # Wszędzie tam, gdzie maska GT > 0
     vis_img[gt_mask > 0] = [255, 255, 255]
-    
-    # 3. Rysujemy Predykcję na czerwono [255, 0, 0]
-    # To nadpisze biały kolor tam, gdzie maski się pokrywają
     vis_img[pred_mask > 0] = [255, 0, 0]
-    
     return vis_img
 
-def show_1x3_blended(gt_mask, pred_mask, filename, pred_type):
-    # Tworzymy obraz wizualizacyjny za pomocą nowej funkcji
-    vis_img = create_layered_image(gt_mask, pred_mask)
-
+def show_1x3_blended(gt_mask, pred_mask, pred_type):
+    
+    vis_img = create_layered_image(gt_mask, pred_mask * 255)
     plt.figure(figsize=(18, 6))
-
-    # 1. Maska Predykcji (LEWA)
     plt.subplot(1, 3, 1)
-    plt.imshow(pred_mask, cmap='gray', vmin=0, vmax=255)
-    plt.title(f"{pred_type}\n{filename[:15]}...")
+    plt.imshow(pred_mask * 255, cmap='gray', vmin=0, vmax=255)
+    plt.title(f"{pred_type}")
     plt.axis('off')
 
-    # 2. Maska GT (ŚRODEK)
     plt.subplot(1, 3, 2)
     plt.imshow(gt_mask, cmap='gray', vmin=0, vmax=255)
     plt.title("Wzorzec (Ground Truth)")
     plt.axis('off')
 
-    # 3. Warstwy (PRAWA) - Bez cmap, bo to już jest gotowy obraz RGB
     plt.subplot(1, 3, 3)
     plt.imshow(vis_img)
     plt.title(f"Nałożenie: {pred_type} (Czerwony) na GT (Biały)\nNiebieski=Tło")
@@ -250,7 +227,6 @@ def show_1x3_blended(gt_mask, pred_mask, filename, pred_type):
     plt.show()
 
 def display_full_report(results):
-    # 1. Raport podstawowy (6 kolumn)
     print("--- RAPORT PODSTAWOWY ---")
     for r in results:
         plt.figure(figsize=(24, 5)) 
@@ -286,13 +262,11 @@ def display_full_report(results):
         plt.tight_layout()
         plt.show()
 
-    # 2. Histogramy
     filenames = [r["filename"] for r in results]
     plot_iou_histogram(filenames, [r["iou_nrg"] for r in results], "IoU dla maski NRG", "skyblue")
     plot_iou_histogram(filenames, [r["iou_rgb"] for r in results], "IoU dla maski RGB", "lightgreen")
     plot_iou_histogram(filenames, [r["iou_combined"] for r in results], "IoU dla maski Combined", "purple")
 
-    # 3. Metryki zbiorcze
     def summarize_metrics(key_suffix, title):
         total_tp = sum(r[f'tp{key_suffix}'] for r in results)
         total_tn = sum(r[f'tn{key_suffix}'] for r in results)
@@ -311,14 +285,13 @@ def display_full_report(results):
     summarize_metrics("_rgb", "Maska RGB (Las)")
     summarize_metrics("", "Maska Combined")
     
-    # 4. ZESTAWIENIA SZCZEGÓŁOWE 1x3
+
     print("\n--- SZCZEGÓŁOWE PORÓWNANIE Z WZORCEM (GT) ---")
     for r in results:
-        # Zestawienie dla maski Combined
-        show_1x3_blended(r["original_mask"], r["combined_mask"], r["filename"], "Maska Combined")
+        show_1x3_blended(r["original_mask"], r["combined_mask"], "Maska Combined")
 
 
-# --- MAIN ---
+
 if __name__ == '__main__':
     paired = create_paired_files(config.PATHS["RGB"], config.PATHS["NRG"], config.PATHS["MASKS"])
     if paired:
