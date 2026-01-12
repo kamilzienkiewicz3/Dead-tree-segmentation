@@ -1,9 +1,9 @@
 # Ścieżki do plików
 paths:
-  nrg_pattern: "data/USA_segmentation/NRG_images/*.png"
-  rgb_pattern: "data/USA_segmentation/RGB_images/*.png"
-  masks_pattern: "data/USA_segmentation/masks/*.png"
-  output_dir: "./generated_masks"
+  nrg_pattern: "data/USA_segmentation/NRG_images/*.png" #put your NRG images path here
+  rgb_pattern: "data/USA_segmentation/RGB_images/*.png" #put your RGB images path here
+  masks_pattern: "data/USA_segmentation/masks/*.png" #put your masks path here
+  output_dir: "./generated_masks" #put your output directory path here
 
 # Parametry detekcji
 detection:
