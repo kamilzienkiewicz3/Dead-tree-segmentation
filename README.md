@@ -1,6 +1,6 @@
 # Dead Tree Segmentation (NRG + RGB)
 
-This project implements an advanced automated detection and segmentation system for standing dead trees (snags) using aerial multispectral (NRG) and high-definition (RGB) imagery. The system combines vegetation index analysis (NDVI/GNDVI) with forest canopy color filtration.
+This project implements an advanced automated detection and segmentation system for dead trees using aerial multispectral (NRG) and high-definition (RGB) imagery. The system combines vegetation index analysis (NDVI/GNDVI) with forest canopy color filtration.
 
 ## 🚀 Key Features
 
@@ -74,8 +74,3 @@ For a full list of available flags, run:
 ```bash
 python main.py --help.
 ```
-
-- **Dark Blue (Background)**: Correct identification of non-tree areas.
-- **White (GT)**: Tree detected from Ground Truth Mask.
-- **Dark Red (Combined_Mask)**: Tree detected by generated mask.
-
