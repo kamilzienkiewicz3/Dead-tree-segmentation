@@ -26,7 +26,15 @@ data/
 https://www.kaggle.com/datasets/meteahishali/aerial-imagery-for-standing-dead-tree-segmentation
 
 
-![Example images](images/example.png)
+# Example images from Dataset
+
+
+<p align="center">
+  <img src="example_img/NRG_ar037_2019_n_08_14_0.png" width="30%" />
+  <img src="example_img/RGB_ar037_2019_n_08_14_0.png" width="30%" />
+  <img src="example_img/mask_ar037_2019_n_08_14_0.png" width="30%" />
+</p>
+
 
 
 # 🛠️ Virtual Environment & Dependencies
