@@ -75,9 +75,6 @@ For a full list of available flags, run:
 python main.py --help.
 ```
 
-# 📊 Visualization Interpretation (Seismic Blend)
-The comparative visualization (third column of the 1x3 report) utilizes the seismic colormap to represent the logical agreement between the algorithm and the ground truth:
-
 - **Dark Blue (Background)**: Correct identification of non-tree areas.
 - **White (GT)**: Tree detected from Ground Truth Mask.
 - **Dark Red (Combined_Mask)**: Tree detected by generated mask.
