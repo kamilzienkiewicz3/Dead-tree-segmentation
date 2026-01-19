@@ -6,148 +6,174 @@ import os
 import glob
 import logging
 import shutil
+import matplotlib.pyplot as plt
 from skimage import color
 from skimage.morphology import remove_small_objects
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('app.log', mode='w', encoding='utf-8')
-    ]
-)
+# --- Logging Setup ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
+                    handlers=[logging.StreamHandler(), logging.FileHandler('app.log', mode='w', encoding='utf-8')])
 logger = logging.getLogger(__name__)
 
-parser = argparse.ArgumentParser(description="Detekcja martwych drzew - Tryb wsadowy")
-parser.add_argument("--percentile", type=int, help="Procentowa wartość percentyla NDVI")
-parser.add_argument("--samples", type=int, help="Liczba próbek do przetworzenia")
-parser.add_argument("--output", type=str, help="Folder wyjściowy dla masek")
+# --- Argument Parsing ---
+parser = argparse.ArgumentParser(description="Dead Tree Detection - Batch Mode")
+parser.add_argument("--percentile", type=int, help="NDVI percentile value")
+parser.add_argument("--samples", type=int, help="Number of samples to process")
+parser.add_argument("--output", type=str, help="Output directory for masks")
 args = parser.parse_args()
 
+# --- Config Loading ---
 try:
     with open("config.yaml", 'r') as stream:
-        c = yaml.safe_load(stream)
+        config_data = yaml.safe_load(stream)
 except FileNotFoundError:
-    logger.critical("Nie znaleziono pliku config.yaml! Upewnij się, że plik istnieje.")
+    logger.critical("config.yaml not found!")
     exit(1)
 
+# --- Configuration Class ---
 class Config:
-    def __init__(self, entries, cli_args):
+    def __init__(self, data, args):
         self.PATHS = {
-            "NRG": entries['paths']['nrg_pattern'],
-            "RGB": entries['paths']['rgb_pattern'],
-            "MASKS": entries['paths']['masks_pattern'],
-            "OUTPUT": cli_args.output if cli_args.output else entries['paths']['output_dir']
+            "NRG": data['paths']['nrg_pattern'],
+            "RGB": data['paths']['rgb_pattern'],
+            "MASKS": data['paths']['masks_pattern'],
+            "OUTPUT": args.output if args.output else data['paths']['output_dir']
         }
-        self.NDVI_PERCENTILE = cli_args.percentile if cli_args.percentile is not None else entries['detection']['ndvi_percentile']
-        self.NUM_SAMPLES_TO_PROCESS = cli_args.samples if cli_args.samples is not None else entries['experiment']['num_samples']
-        self.MIN_OBJECT_SIZE = entries['detection']['min_object_size']
-        self.MORPH_KERNEL_SIZE = tuple(entries['detection']['morph_kernel_size'])
-        self.FOREST_LOWER_PURPLE = np.array(entries['forest_hsv']['lower'])
-        self.FOREST_UPPER_PURPLE = np.array(entries['forest_hsv']['upper'])
+        self.NDVI_PERCENTILE = args.percentile if args.percentile is not None else data['detection']['ndvi_percentile']
+        self.NUM_SAMPLES = args.samples if args.samples is not None else data['experiment']['num_samples']
+        self.MIN_OBJ_SIZE = data['detection']['min_object_size']
+        self.KERNEL_SIZE = tuple(data['detection']['morph_kernel_size'])
+        self.FOREST_LOWER = np.array(data['forest_hsv']['lower'])
+        self.FOREST_UPPER = np.array(data['forest_hsv']['upper'])
 
-config = Config(c, args)
+cfg = Config(config_data, args)
 
-def reset_output_directory(path):
+# --- Helper Functions ---
+def reset_output_dir(path):
     if os.path.exists(path):
-        logger.info(f"Czyszczenie folderu wyjściowego: {path}")
         try:
             shutil.rmtree(path)
+            logger.info(f"Cleaned output directory: {path}")
         except Exception as e:
-            logger.error(f"Nie udało się usunąć folderu {path}: {e}")
+            logger.error(f"Failed to remove {path}: {e}")
             return
-
     os.makedirs(path, exist_ok=True)
-    logger.info(f"Utworzono pusty folder: {path}")
+    logger.info(f"Created empty directory: {path}")
 
-def detect_dead_trees_advanced(nrg_image):
-    nir   = nrg_image[:, :, 0].astype(float)
-    red   = nrg_image[:, :, 1].astype(float)
-    green = nrg_image[:, :, 2].astype(float)
+def calculate_iou(mask1, mask2):
+    inter = np.logical_and(mask1, mask2).sum()
+    union = np.logical_or(mask1, mask2).sum()
+    return inter / union if union > 0 else 0.0
 
-    ndvi_denom = nir + red
-    ndvi_denom[ndvi_denom == 0] = 1e-6
-    ndvi = (nir - red) / ndvi_denom
+def plot_iou_histogram(filenames, ious, output_dir):
+    plt.figure(figsize=(10, 5))
+    plt.bar(range(len(filenames)), ious, color='purple', alpha=0.7)
+    plt.title("IoU of Combined Mask vs GT Masks")
+    plt.xlabel('GT Mask Name')
+    plt.ylabel('IoU')
+    plt.ylim(0, 1)
+    plt.xticks(range(len(filenames)), filenames, rotation=45, ha='right')
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    hist_path = os.path.join(output_dir, 'iou_histogram.png')
+    plt.savefig(hist_path, dpi=300)
+    plt.close()
+    logger.info(f"IoU histogram saved: {hist_path}")
 
-    gndvi_denom = nir + green
-    gndvi_denom[gndvi_denom == 0] = 1e-6
-    gndvi = (nir - green) / gndvi_denom
+# --- Core Processing Logic ---
+def get_dead_tree_mask(nrg_img):
+    nir, red, green = nrg_img[:,:,0].astype(float), nrg_img[:,:,1].astype(float), nrg_img[:,:,2].astype(float)
+    
+    # Avoid division by zero
+    ndvi = (nir - red) / (nir + red + 1e-6)
+    gndvi = (nir - green) / (nir + green + 1e-6)
 
-    ndvi_th = np.percentile(ndvi, config.NDVI_PERCENTILE)
-    gndvi_th = np.percentile(gndvi, config.NDVI_PERCENTILE)
+    ndvi_th = np.percentile(ndvi, cfg.NDVI_PERCENTILE)
+    gndvi_th = np.percentile(gndvi, cfg.NDVI_PERCENTILE)
 
-    mask = (ndvi < ndvi_th) & (gndvi < gndvi_th)
-    mask = mask.astype(np.uint8)
-    kernel = np.ones(config.MORPH_KERNEL_SIZE, np.uint8)
+    mask = ((ndvi < ndvi_th) & (gndvi < gndvi_th)).astype(np.uint8)
+    
+    kernel = np.ones(cfg.KERNEL_SIZE, np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     return cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
-def generate_forest_mask(rgb_image):
-    hsv_image = color.rgb2hsv(rgb_image)
-    mask_hsv = np.all((hsv_image >= config.FOREST_LOWER_PURPLE) & 
-                      (hsv_image <= config.FOREST_UPPER_PURPLE), axis=-1).astype(np.uint8)
+def get_forest_mask(rgb_img):
+    hsv = color.rgb2hsv(rgb_img)
+    mask = np.all((hsv >= cfg.FOREST_LOWER) & (hsv <= cfg.FOREST_UPPER), axis=-1).astype(np.uint8)
     
-    kernel = np.ones(config.MORPH_KERNEL_SIZE, np.uint8)
-    mask_hsv_open = cv2.morphologyEx(mask_hsv, cv2.MORPH_OPEN, kernel)
-    mask_hsv_close = cv2.morphologyEx(mask_hsv_open, cv2.MORPH_CLOSE, kernel)
-    return remove_small_objects(mask_hsv_close.astype(bool), min_size=config.MIN_OBJECT_SIZE).astype(np.uint8)
+    kernel = np.ones(cfg.KERNEL_SIZE, np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    return remove_small_objects(mask.astype(bool), min_size=cfg.MIN_OBJ_SIZE).astype(np.uint8)
 
-def create_paired_files(paths_rgb_pattern, paths_nrg_pattern):
-    rgb_dir = os.path.dirname(paths_rgb_pattern)
-    nrg_dir = os.path.dirname(paths_nrg_pattern)
+def find_image_pairs():
+    rgb_files = sorted(glob.glob(cfg.PATHS["RGB"]))
+    nrg_dir = os.path.dirname(cfg.PATHS["NRG"])
+    mask_dir = os.path.dirname(cfg.PATHS["MASKS"]) if cfg.PATHS["MASKS"] else None
     
-    rgb_files = sorted(glob.glob(paths_rgb_pattern))
-    paired = []
-    logger.info(f"Szukanie par dla {len(rgb_files)} plików...")
+    pairs = []
+    logger.info(f"Searching pairs for {len(rgb_files)} files...")
 
     for rgb_path in rgb_files:
-        filename = os.path.basename(rgb_path)
-        if filename.startswith("RGB_"):
-            common_id = filename[4:] 
-            nrg_path = os.path.join(nrg_dir, "NRG_" + common_id)
-            
-            if os.path.exists(nrg_path):
-                paired.append((rgb_path, nrg_path))
-    
-    logger.info(f"Znaleziono {len(paired)} kompletnych par (RGB + NRG).")
-    return paired
-
-def process_and_save_masks(paired_files, num_samples, output_dir):
-    limit = min(num_samples, len(paired_files))
-    
-    for i in range(limit):
-        rgb_path, nrg_path = paired_files[i]
-        fname = os.path.basename(rgb_path)
-        file_id = fname.replace("RGB_", "").replace(".png", "")
+        common_id = os.path.basename(rgb_path).replace("RGB_", "")
+        nrg_path = os.path.join(nrg_dir, "NRG_" + common_id)
         
-        logger.info(f"[{i+1}/{limit}] Generowanie masek dla ID: {file_id}")
+        if os.path.exists(nrg_path):
+            mask_path = os.path.join(mask_dir, "mask_" + common_id) if mask_dir else None
+            if mask_path and not os.path.exists(mask_path):
+                mask_path = None
+            pairs.append((rgb_path, nrg_path, mask_path))
+
+    logger.info(f"Found {len(pairs)} pairs.")
+    return pairs
+
+def process_images(pairs):
+    limit = min(cfg.NUM_SAMPLES, len(pairs))
+    ious, filenames = [], []
+    
+    reset_output_dir(cfg.PATHS["OUTPUT"])
+
+    for i in range(limit):
+        rgb_path, nrg_path, mask_path = pairs[i]
+        file_id = os.path.basename(rgb_path).replace("RGB_", "").replace(".png", "")
+        
+        logger.info(f"[{i+1}/{limit}] Processing ID: {file_id}")
 
         try:
             rgb = cv2.cvtColor(cv2.imread(rgb_path), cv2.COLOR_BGR2RGB)
             nrg = cv2.cvtColor(cv2.imread(nrg_path), cv2.COLOR_BGR2RGB)
 
-            nrg_mask = detect_dead_trees_advanced(nrg)
-            rgb_forest_mask = generate_forest_mask(rgb)
+            dead_mask = get_dead_tree_mask(nrg)
+            forest_mask = get_forest_mask(rgb)
             
-            combined_pre = (nrg_mask > 0) & (rgb_forest_mask > 0)
-            combined_mask = remove_small_objects(combined_pre, min_size=config.MIN_OBJECT_SIZE).astype(np.uint8)
+            combined = remove_small_objects((dead_mask & forest_mask).astype(bool), min_size=cfg.MIN_OBJ_SIZE).astype(np.uint8)
 
-            cv2.imwrite(os.path.join(output_dir, f"NRG_mask_{file_id}.png"), nrg_mask * 255)
-            cv2.imwrite(os.path.join(output_dir, f"RGB_forest_{file_id}.png"), rgb_forest_mask * 255)
-            cv2.imwrite(os.path.join(output_dir, f"FINAL_combined_{file_id}.png"), combined_mask * 255)
+            # Save results
+            cv2.imwrite(os.path.join(cfg.PATHS["OUTPUT"], f"NRG_mask_{file_id}.png"), dead_mask * 255)
+            cv2.imwrite(os.path.join(cfg.PATHS["OUTPUT"], f"RGB_forest_{file_id}.png"), forest_mask * 255)
+            cv2.imwrite(os.path.join(cfg.PATHS["OUTPUT"], f"FINAL_combined_{file_id}.png"), combined * 255)
+
+            if mask_path:
+                gt_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+                if gt_mask is not None:
+                    iou = calculate_iou(combined, gt_mask)
+                    ious.append(iou)
+                    filenames.append(file_id)
+                    logger.info(f"IoU: {iou:.4f}")
 
         except Exception as e:
-            logger.error(f"Błąd podczas przetwarzania pliku {fname}: {e}")
+            logger.error(f"Error processing {file_id}: {e}")
 
-    logger.info("Przetwarzanie zakończone sukcesem.")
-
-if __name__ == '__main__':
-    reset_output_directory(config.PATHS["OUTPUT"])
-
-    paired = create_paired_files(config.PATHS["RGB"], config.PATHS["NRG"])
-
-    if paired:
-        process_and_save_masks(paired, num_samples=config.NUM_SAMPLES_TO_PROCESS, output_dir=config.PATHS["OUTPUT"])
+    if ious:
+        plot_iou_histogram(filenames, ious, cfg.PATHS["OUTPUT"])
+        logger.info(f"Mean IoU: {np.mean(ious):.4f}")
     else:
-        logger.error("BŁĄD: Nie znaleziono par plików! Sprawdź ścieżki w config.yaml.")
+        logger.info("No GT masks for IoU calculation.")
+
+# --- Main Execution ---
+if __name__ == '__main__':
+    pairs = find_image_pairs()
+    if pairs:
+        process_images(pairs)
+    else:
+        logger.error("No image pairs found! Check config.yaml paths.")
