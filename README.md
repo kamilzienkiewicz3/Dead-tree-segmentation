@@ -22,6 +22,21 @@ source .venv/bin/activate
 
 pip install -r requirements.txt
 ```
+# Configuration Setup
+The project requires a configuration file. Create it by copying the template:
+
+```bash
+cp config.temp.yaml config.yaml
+```
+Before running the code, please copy temp config into your own config
+
+# ⚙️ Configuration (config.yaml)
+
+The following key parameters are defined in the config file:
+
+- **ndvi_percentile**: Sensitivity threshold for NDVI/GNDVI indices.
+- **forest_hsv**: Color ranges (Lower/Upper) used to identify the forest canopy.
+- **min_object_size**: Minimum pixel count for an object to be retained (noise filtration).
 
 # 📂 Data Structure
 
@@ -59,13 +74,6 @@ For a full list of available flags, run:
 ```bash
 python main.py --help.
 ```
-# ⚙️ Configuration (config.yaml)
-
-The following key parameters are defined in the config file:
-
-- **ndvi_percentile**: Sensitivity threshold for NDVI/GNDVI indices.
-- **forest_hsv**: Color ranges (Lower/Upper) used to identify the forest canopy.
-- **min_object_size**: Minimum pixel count for an object to be retained (noise filtration).
 
 # 📊 Visualization Interpretation (Seismic Blend)
 The comparative visualization (third column of the 1x3 report) utilizes the seismic colormap to represent the logical agreement between the algorithm and the ground truth:

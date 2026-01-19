@@ -197,8 +197,6 @@ def plot_iou_histogram(filenames, ious, title, color_bar):
     plt.show()
 
 
-
-
 def display_full_report(results):
     print("--- RAPORT PODSTAWOWY ---")
     for r in results:
