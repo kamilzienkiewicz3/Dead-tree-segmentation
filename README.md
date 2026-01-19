@@ -25,6 +25,10 @@ data/
 # Dataset
 https://www.kaggle.com/datasets/meteahishali/aerial-imagery-for-standing-dead-tree-segmentation
 
+
+![Example images](images/example.png)
+
+
 # 🛠️ Virtual Environment & Dependencies
 It is recommended to use a virtual environment to avoid dependency conflicts:
 
