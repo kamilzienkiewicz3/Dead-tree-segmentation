@@ -197,34 +197,7 @@ def plot_iou_histogram(filenames, ious, title, color_bar):
     plt.show()
 
 
-def create_layered_image(gt_mask, pred_mask):
-    h, w = gt_mask.shape
-    vis_img = np.full((h, w, 3), [0, 0, 100], dtype=np.uint8)
-    vis_img[gt_mask > 0] = [255, 255, 255]
-    vis_img[pred_mask > 0] = [255, 0, 0]
-    return vis_img
 
-def show_1x3_blended(gt_mask, pred_mask, pred_type):
-    
-    vis_img = create_layered_image(gt_mask, pred_mask * 255)
-    plt.figure(figsize=(18, 6))
-    plt.subplot(1, 3, 1)
-    plt.imshow(pred_mask * 255, cmap='gray', vmin=0, vmax=255)
-    plt.title(f"{pred_type}")
-    plt.axis('off')
-
-    plt.subplot(1, 3, 2)
-    plt.imshow(gt_mask, cmap='gray', vmin=0, vmax=255)
-    plt.title("Wzorzec (Ground Truth)")
-    plt.axis('off')
-
-    plt.subplot(1, 3, 3)
-    plt.imshow(vis_img)
-    plt.title(f"Nałożenie: {pred_type} (Czerwony) na GT (Biały)\nNiebieski=Tło")
-    plt.axis('off')
-
-    plt.tight_layout()
-    plt.show()
 
 def display_full_report(results):
     print("--- RAPORT PODSTAWOWY ---")
