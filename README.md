@@ -9,6 +9,22 @@ This project implements an advanced automated detection and segmentation system 
 - **CLI Interface (Argparse)**: Ability to override any configuration parameter directly from the terminal at runtime.
 - **Advanced Reporting**: Generates IoU statistics, confusion matrices, and comparative visualizations for performance evaluation.
 
+
+# 📂 Data Structure
+
+The `data/` folder is ignored by version control. Please prepare your local data in the following structure:
+
+```text
+data/
+└── USA_segmentation/
+    ├── NRG_images/   # NIR-Red-Green imagery
+    ├── RGB_images/   # High-definition RGB imagery
+    └── masks/        # Ground Truth binary masks (PNG)
+```
+
+# Dataset
+https://www.kaggle.com/datasets/meteahishali/aerial-imagery-for-standing-dead-tree-segmentation
+
 # 🛠️ Virtual Environment & Dependencies
 It is recommended to use a virtual environment to avoid dependency conflicts:
 
@@ -38,19 +54,6 @@ The following key parameters are defined in the config file:
 - **forest_hsv**: Color ranges (Lower/Upper) used to identify the forest canopy.
 - **min_object_size**: Minimum pixel count for an object to be retained (noise filtration).
 
-# 📂 Data Structure
-
-The `data/` folder is ignored by version control. Please prepare your local data in the following structure:
-
-```text
-data/
-└── USA_segmentation/
-    ├── NRG_images/   # NIR-Red-Green imagery
-    ├── RGB_images/   # High-definition RGB imagery
-    └── masks/        # Ground Truth binary masks (PNG)
-```
-# Dataset
-https://www.kaggle.com/datasets/meteahishali/aerial-imagery-for-standing-dead-tree-segmentation
 
 # 🖥️ Usage (CLI)
 The program offers a flexible Command Line Interface. Values entered in the terminal take precedence over those defined in config.yaml.
