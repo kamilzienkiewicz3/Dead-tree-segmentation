@@ -10,19 +10,19 @@ import matplotlib.pyplot as plt
 from skimage import color
 from skimage.morphology import remove_small_objects
 
-# --- Logging Setup ---
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s',
                     handlers=[logging.StreamHandler(), logging.FileHandler('app.log', mode='w', encoding='utf-8')])
 logger = logging.getLogger(__name__)
 
-# --- Argument Parsing ---
+
 parser = argparse.ArgumentParser(description="Dead Tree Detection - Batch Mode")
 parser.add_argument("--percentile", type=int, help="NDVI percentile value")
 parser.add_argument("--samples", type=int, help="Number of samples to process")
 parser.add_argument("--output", type=str, help="Output directory for masks")
 args = parser.parse_args()
 
-# --- Config Loading ---
+
 try:
     with open("config.yaml", 'r') as stream:
         config_data = yaml.safe_load(stream)
@@ -30,7 +30,7 @@ except FileNotFoundError:
     logger.critical("config.yaml not found!")
     exit(1)
 
-# --- Configuration Class ---
+
 class Config:
     def __init__(self, data, args):
         self.PATHS = {
@@ -48,7 +48,7 @@ class Config:
 
 cfg = Config(config_data, args)
 
-# --- Helper Functions ---
+
 def reset_output_dir(path):
     if os.path.exists(path):
         try:
@@ -80,7 +80,7 @@ def plot_iou_histogram(filenames, ious, output_dir):
     plt.close()
     logger.info(f"IoU histogram saved: {hist_path}")
 
-# --- Core Processing Logic ---
+
 def get_dead_tree_mask(nrg_img):
     nir, red, green = nrg_img[:,:,0].astype(float), nrg_img[:,:,1].astype(float), nrg_img[:,:,2].astype(float)
     
@@ -148,7 +148,6 @@ def process_images(pairs):
             
             combined = remove_small_objects((dead_mask & forest_mask).astype(bool), min_size=cfg.MIN_OBJ_SIZE).astype(np.uint8)
 
-            # Save results
             cv2.imwrite(os.path.join(cfg.PATHS["OUTPUT"], f"NRG_mask_{file_id}.png"), dead_mask * 255)
             cv2.imwrite(os.path.join(cfg.PATHS["OUTPUT"], f"RGB_forest_{file_id}.png"), forest_mask * 255)
             cv2.imwrite(os.path.join(cfg.PATHS["OUTPUT"], f"FINAL_combined_{file_id}.png"), combined * 255)
@@ -170,7 +169,7 @@ def process_images(pairs):
     else:
         logger.info("No GT masks for IoU calculation.")
 
-# --- Main Execution ---
+
 if __name__ == '__main__':
     pairs = find_image_pairs()
     if pairs:
