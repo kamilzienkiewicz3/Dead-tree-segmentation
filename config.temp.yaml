@@ -7,7 +7,7 @@ paths:
 
 # Parametry detekcji
 detection:
-  ndvi_percentile: 35
+  ndvi_percentile: 45
   min_object_size: 50
   morph_kernel_size: [3, 3]
 
